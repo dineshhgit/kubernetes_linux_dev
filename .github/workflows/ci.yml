@@ -1,0 +1,63 @@
+name: ECR Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_ACCOUNT_ID: "*****"
+  AWS_DEFAULT_REGION: "us-east-1"
+  IMAGE_REPO_NAME: "sales-web"
+  IMAGE_TAG: "latest"
+  REPOSITORY_URI: "354123217758.dkr.ecr.us-east-1.amazonaws.com/sales-web"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+    
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        run: |
+          aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+      - name: Build Docker image
+        run: |
+          docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      
+      - name: Tag Docker image
+        run: |
+          docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push $REPOSITORY_URI:$IMAGE_TAG
+      
+      - name: Remove local Docker images
+        run: |
+          docker rmi $IMAGE_REPO_NAME:$IMAGE_TAG
+          docker rmi $REPOSITORY_URI:$IMAGE_TAG
+
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --name EKS-Augusta-Cluster --region $AWS_DEFAULT_REGION
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f sales-deployment.yaml
+          kubectl rollout restart deployment sales-ui -n dev
+          kubectl rollout status deployment sales-ui -n dev
