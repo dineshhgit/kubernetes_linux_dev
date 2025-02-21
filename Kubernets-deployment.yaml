@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sales-ui
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sales-ui
+  template:
+    metadata:
+      labels:
+        app: sales-ui
+    spec:
+      containers:
+        - name: sales-ui
+          image: 354123217758.dkr.ecr.us-east-1.amazonaws.com/sales-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
