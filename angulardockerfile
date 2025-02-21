@@ -1,0 +1,23 @@
+# ----------------------------
+# build from source
+# ----------------------------
+    FROM node:18 AS build
+
+    WORKDIR /app
+    
+    COPY package*.json .
+    RUN npm install
+    
+    COPY . .
+    RUN npm run build
+    
+    # ----------------------------
+    # run with nginx
+    # ----------------------------
+    FROM nginx
+  
+    COPY --from=build /app/dist/pandid-ui /usr/share/nginx/html
+    COPY ./nginx-custom.conf /etc/nginx/conf.d/default.conf
+     
+    
+    #EXPOSE 80dist/pandid-ui
